@@ -44,7 +44,7 @@ passwd.place(x=10,y=210,width=280,height=20)
 
 user = '123456'
 passwordUser = '123456'
-print('teste')
+
 try:
     os.makedirs("C:/Users/Emails")
 except:
