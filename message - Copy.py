@@ -1,6 +1,7 @@
 import os
 import csv
 import sys
+import pyodbc
 import smtplib
 import tkinter as tk
 from tkinter import *
@@ -51,6 +52,17 @@ try:
 except:
     pass
 
+dados_conexao = (
+    "Driver={SQL Server};"
+    "Server=KHANAN\SQLEXPRESS;"
+    "Database=PythonSQL;"
+)
+
+conexao = pyodbc.connect(dados_conexao)
+print("Conexão Bem Sucedida")
+
+cursor = conexao.cursor()
+
 def userLogin():
     if user == user1.get() and passwordUser == passwd.get():
         sendEmail()
@@ -90,11 +102,14 @@ def cadastrar():
     EmailAddress1.configure(font=("default", 10, "normal"))
     EmailAddress1.place(x=10,y=30,width=300,height=20)
     try:
-        pasta = 'C:/Users/Emails'
-        for diretorio, subpastas, arquivos in os.walk(pasta):
-            arquivo = arquivos
+        cursor.execute("SELECT DISTINCT LISTAS FROM Emails_LISTA")
+        row = cursor.fetchall()
+        TIPO_LISTA = []
+        for rows in row:
+            TIPO_LISTA.append(rows[:][0])
+        
 
-        options_list = arquivo
+        options_list = TIPO_LISTA
         value_inside = tk.StringVar(windonws1)
         value_inside.set("Selecione o Banco de Dados")
         question_menu = tk.OptionMenu(windonws1, value_inside, *options_list)
@@ -102,59 +117,61 @@ def cadastrar():
         
         def cadastrarEmail():
             try:
-                with open(f'{pasta}/{value_inside.get()}', 'r') as csv_file:
-                    csv_reader = csv.reader(csv_file, delimiter=';')
+                cursor.execute(f"""SELECT EMAIL FROM ClientesEmails WHERE TIPO_LISTA = '{value_inside.get()}' AND EMAIL = '{EmailAddress1.get()}'""")
+                row = cursor.fetchone()
 
-                    for linha in csv_reader:
-                        GetEmail = EmailAddress1.get()
-                    try:
-                        IndexEmail = linha.index(GetEmail)
+                if row.EMAIL == EmailAddress1.get():
+                    messageSucess = f"E-mail já cadastrado em {value_inside.get()}"
+                    Cadastrado = Label(windonws1, text=messageSucess, background="red",foreground="white")
+                    Cadastrado.configure(font=("default", 10, "normal"))
+                    Cadastrado.place(x=10,y=115, width=300, height=25)
 
-                        messageSucess = f"E-mail já cadastrado em {value_inside.get()}".replace(".csv", "")
-                        Cadastrado = Label(windonws1, text=messageSucess, background="red",foreground="white")
-                        Cadastrado.configure(font=("default", 10, "normal"))
-                        Cadastrado.place(x=10,y=115, width=300, height=25)
-                    except:
-                        with open(f'{pasta}/{value_inside.get()}', 'r') as file:
-                            header = csv.reader(file, delimiter=',')
-                            for linha in header:
-                                strLinha = str(linha)
-                                linhaClear = strLinha.replace("]", "").replace("'", "").replace("[", "")+EmailAddress1.get()+';'.rstrip('\n')
-                                listLinha = [linhaClear]
-                            with open(f'{pasta}/{value_inside.get()}', 'w', newline='') as file:
-                                writer = csv.writer(file)
-
-                                writer.writerow(listLinha)
-
-                        messageFail = f"E-mail cadastrado em {value_inside.get()}".replace(".csv", "")
-                        NoCadastrado = Label(windonws1, text=messageFail, background="green",foreground="white")
-                        NoCadastrado.configure(font=("default", 10, "normal"))
-                        NoCadastrado.place(x=10,y=115, width=300, height=25)
             except:
-                Selecionar = Label(windonws1, text="Selecione um banco de dados", background="red",foreground="white")
-                Selecionar.configure(font=("default", 10, "normal"))
-                Selecionar.place(x=10,y=115, width=300, height=25)
+                if value_inside.get() == "Selecione o Banco de Dados":
+                    Selecionar = Label(windonws1, text="Selecione um banco de dados", background="red",foreground="white")
+                    Selecionar.configure(font=("default", 10, "normal"))
+                    Selecionar.place(x=10,y=115, width=300, height=25)
+
+                else:
+                    cursor.execute(f"""INSERT INTO ClientesEmails (EMAIL, TIPO_LISTA) VALUES ('{str(EmailAddress1.get())}','{str(value_inside.get())}')""")
+                    cursor.commit()
+                    messageFail = f"E-mail cadastrado em {value_inside.get()}"
+                    NoCadastrado = Label(windonws1, text=messageFail, background="green",foreground="white")
+                    NoCadastrado.configure(font=("default", 10, "normal"))
+                    NoCadastrado.place(x=10,y=115, width=300, height=25)                   
 
         def removeEmail():
-            with open(f'{pasta}/{value_inside.get()}', 'r') as csv_file:
-                csv_reader = csv.reader(csv_file, delimiter=';')
+            try:
+                if value_inside.get() == "Selecione o Banco de Dados":
+                    Selecionar = Label(windonws1, text="Selecione um banco de dados", background="red",foreground="white")
+                    Selecionar.configure(font=("default", 10, "normal"))
+                    Selecionar.place(x=10,y=115, width=300, height=25)
 
-                for linha in csv_reader:
-                    GetEmail = EmailAddress1.get()
-                    try:
-                        while True:
-                            linha.remove(GetEmail)
-                        
-                    except:
-                        with open(f'{pasta}/{value_inside.get()}', 'w', newline='') as file:
-                            writer = csv.writer(file, delimiter=';')
+                else:
+                    cursor.execute(f"""SELECT EMAIL FROM ClientesEmails WHERE TIPO_LISTA = '{value_inside.get()}' AND EMAIL = '{EmailAddress1.get()}'""")
+                    row = cursor.fetchall()
+                    row_list = []
+                    for rows in row:
+                        row_list.append(rows[:][0])
+                    if row_list == []:
+                        messageRemove = f"E-mail nao encontrado ou ja foi retirado"
+                        remove = Label(windonws1, text=messageRemove, background="red",foreground="white")
+                        remove.configure(font=("default", 10, "normal"))
+                        remove.place(x=10,y=115, width=300, height=25)   
 
-                            writer.writerow(linha)
+                    else:
+                        cursor.execute(f"""DELETE FROM ClientesEmails WHERE EMAIL = '{EmailAddress1.get()}' AND TIPO_LISTA = '{value_inside.get()}'""")
+                        cursor.commit()
 
-                messageRemove = f"E-mail removido em {value_inside.get()}".replace(".csv", "")
-                remove = Label(windonws1, text=messageRemove, background="green",foreground="white")
+                        messageRemove = f"E-mail removido em {value_inside.get()}".replace(".csv", "")
+                        remove = Label(windonws1, text=messageRemove, background="green",foreground="white")
+                        remove.configure(font=("default", 10, "normal"))
+                        remove.place(x=10,y=115, width=300, height=25)   
+            except:
+                messageRemove = f"E-mail nao encontrado"
+                remove = Label(windonws1, text=messageRemove, background="red",foreground="white")
                 remove.configure(font=("default", 10, "normal"))
-                remove.place(x=10,y=115, width=300, height=25)        
+                remove.place(x=10,y=115, width=300, height=25)   
 
         CadastrarButton = Button(windonws1, text="Cadastrar", background="#A4A4A4",foreground="black", command=cadastrarEmail)
         CadastrarButton.configure(font=("default", 10, "bold"))
@@ -186,22 +203,21 @@ def criarBanco():
     NomeBanc.place(x=10,y=35, width=300, height=20)
 
     def Create():
-        caminho = f'C:/Users/Emails/{NomeBanc.get()}.csv'
-        if os.path.exists(caminho):
-            # os.makedirs("C:/Users/Emails")
+        try:
+            cursor.execute(f"""SELECT LISTAS FROM Emails_LISTA WHERE LISTAS = '{NomeBanc.get()}'""")
+            row = cursor.fetchone()
 
-            failBanco = Label(windonws4, text="Banco de dados existente", background="red",foreground="white")
-            failBanco.configure(font=("default", 10, "normal"))
-            failBanco.place(x=10,y=85, width=210, height=25)    
-        else:
-            with open(caminho.lower(), 'w', newline='') as file:
-                writer = csv.writer(file, delimiter=';')
-                dados = [';']
-                writer.writerow(dados)
+            if row.LISTAS == NomeBanc.get():
+                sucessBanco = Label(windonws4, text="[ERRO] Lista existente", background="red",foreground="white")
+                sucessBanco.configure(font=("default", 10, "normal"))
+                sucessBanco.place(x=10,y=85, width=210, height=25)
+        except:
+            cursor.execute(f"""INSERT INTO Emails_LISTA (LISTAS) VALUES ('{str(NomeBanc.get())}')""")
+            cursor.commit()
 
-            sucessBanco = Label(windonws4, text="Banco de dados criado", background="green",foreground="white")
+            sucessBanco = Label(windonws4, text="Lista criada com sucesso", background="green",foreground="white")
             sucessBanco.configure(font=("default", 10, "normal"))
-            sucessBanco.place(x=10,y=85, width=210, height=25)    
+            sucessBanco.place(x=10,y=85, width=210, height=25)
 
     criarButton = Button(windonws4, text='Criar', background="#A4A4A4",foreground="black", command=Create)
     criarButton.configure(font=("default", 10, "bold"))
@@ -232,11 +248,13 @@ def sendEmail():
     passwd1.configure(font=("default", 10, "bold"))
     passwd1.place(x=10,y=85,width=300,height=20)
     try:
-        pasta = 'C:/Users/Emails'
-        for diretorio, subpastas, arquivos in os.walk(pasta):
-            arquivo = arquivos
+        cursor.execute("SELECT DISTINCT LISTAS FROM Emails_LISTA")
+        row = cursor.fetchall()
+        TIPO_LISTA = []
+        for rows in row:
+            TIPO_LISTA.append(rows[:][0])
 
-        options_list = arquivo
+        options_list = TIPO_LISTA
         value_inside = tk.StringVar(windonws2)
         value_inside.set("Selecione o Banco de Dados")
         question_menu = tk.OptionMenu(windonws2, value_inside, *options_list)
@@ -271,16 +289,17 @@ def sendEmail():
 
     def send():
         try:
-            with open(f'{pasta}/{value_inside.get()}', 'r') as csv_file:
-                csv_reader = csv.reader(csv_file, delimiter=';')
-
-                for emails in csv_reader:
-                    pass
+            cursor.execute(f"""SELECT EMAIL FROM ClientesEmails WHERE TIPO_LISTA = '{value_inside.get()}'""")
+            row = cursor.fetchall()
+            cursor.commit()
+            EMAIL_LISTA = []
+            for rows in row:
+                EMAIL_LISTA.append(rows[:][0])
 
             msg = EmailMessage()
             msg['Subject'] = assunto.get()
             msg['From'] = EmailAddress.get()
-            msg['To'] = emails
+            msg['To'] = EMAIL_LISTA
             # corpo da mensagem
             msg.set_content(corpoTexto.get("1.0",'end-1c'))
 
@@ -296,16 +315,17 @@ def sendEmail():
             emailFail.place(x=270,y=410, width=240, height=25)
     def sendAnexo():
         try:
-            with open(f'{pasta}/{value_inside.get()}', 'r') as csv_file:
-                csv_reader = csv.reader(csv_file, delimiter=';')
-
-                for emails in csv_reader:
-                    pass
+            cursor.execute(f"""SELECT EMAIL FROM ClientesEmails WHERE TIPO_LISTA = '{value_inside.get()}'""")
+            row = cursor.fetchall()
+            cursor.commit()
+            EMAIL_LISTA = []
+            for rows in row:
+                EMAIL_LISTA.append(rows[:][0])
 
             msg = EmailMessage()
             msg['Subject'] = assunto.get()
             msg['From'] = EmailAddress.get()
-            msg['To'] = emails
+            msg['To'] = EMAIL_LISTA
             # corpo da mensagem
             msg.set_content(corpoTexto.get("1.0",'end-1c'))
             caminhoArqs = filedialog.askopenfilenames()
